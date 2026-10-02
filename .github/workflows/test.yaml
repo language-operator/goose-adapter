@@ -1,0 +1,66 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  image-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: true
+          tags: opencode-adapter:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Taken out of the image rather than fetched from a tag: the suite the base
+      # ships is by construction the one that matches the runtime being checked,
+      # and it brings its own probe, so there is no version to keep in step here.
+      - name: Extract the conformance suite from the image
+        run: |
+          docker run --rm --entrypoint cat opencode-adapter:test \
+            /opt/coding-runtime/test/conformance.sh > conformance.sh
+          chmod +x conformance.sh
+
+      # Runs the image under the posture the operator imposes and an adapter
+      # cannot override: read-only root, uid 1000, all capabilities dropped,
+      # tmpfs /tmp. Checks doctor, that seeding is idempotent and writes nothing
+      # outside /tmp and /workspace, the probe endpoints, manifest redaction, the
+      # cross-origin WebSocket guard, and that a keystroke reaches the program
+      # under tmux. No tolerated failures.
+      - name: Run conformance suite
+        run: ./conformance.sh opencode-adapter:test adapter
+
+  chart-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: 'latest'
+
+      - name: Lint chart
+        run: helm lint chart
+
+      - name: Template chart
+        run: helm template opencode chart
