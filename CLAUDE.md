@@ -1,11 +1,12 @@
 # CLAUDE.md
 
-Guidance for working in the `opencode-adapter` repository.
+Guidance for working in the `goose-adapter` repository. This repo was created from the
+opencode-adapter template.
 
 ## What this is
 
 A [Language Operator](https://github.com/language-operator) **runtime** that runs the
-**opencode** TUI as a Kubernetes workload. The TUI runs inside tmux and is fronted by an
+**Goose** CLI as a Kubernetes workload. Goose runs inside tmux and is fronted by an
 xterm.js / WebSocket terminal, so working with the agent feels like a real terminal
 session.
 
@@ -13,7 +14,7 @@ It is a **thin layer over
 [`coding-runtime`](https://github.com/language-operator/coding-runtime)**. The base owns
 the OS layer, the web terminal (node-pty over a WebSocket, with a cross-origin guard and
 a keepalive), `tini`, and the ETL that turns the operator's `/etc/agent/config.yaml` into
-a normalized config. This repo adds the opencode CLI plus three files that describe it to
+a normalized config. This repo adds the Goose CLI plus three files that describe it to
 the base.
 
 One container, running the base entrypoint: resolve the environment, seed config, serve.
@@ -23,19 +24,22 @@ it.
 
 ## Key files
 
-- `Dockerfile` — `FROM ${BASE}` plus one `npm install -g opencode-ai`. `ARG BASE` pins
-  the base by **tag and digest**, and is the only place the base version appears.
-- `runtime.json` — the manifest: where config goes, the serving surface, how tmux
-  launches the TUI. **A verbatim copy** of upstream `examples/opencode/runtime.json`.
-- `emit.mjs` — the emitter: normalized config → `opencode.jsonc` (provider, model, MCP
-  servers, instructions). **Also a verbatim copy.** Do not edit either file here; they
-  move with the base, via `/update-dependencies`.
-- `launch-opencode.sh` — what tmux runs. Opens the project directory, and passes
-  `--continue` once the workspace holds a session store so a slept agent resumes instead
-  of opening blank. The guard matters: with nothing to resume, opencode's TUI leaves a
-  placeholder session and shows an unexplained error toast.
+- `Dockerfile` — `FROM ${BASE}` plus the Goose release binary, pinned by
+  `ARG GOOSE_VERSION` and verified against `ARG GOOSE_SHA256_AMD64`/`_ARM64` (Goose
+  publishes no checksums, so they are computed here). `ARG BASE` pins the base by **tag
+  and digest**, and is the only place the base version appears.
+- `runtime.json` — the manifest: `GOOSE_PATH_ROOT=${STATE_DIR}/goose` (config at
+  `config/config.yaml`, sessions at `data/sessions/sessions.db` under it), telemetry off,
+  the serving surface, how tmux launches the CLI. **Owned here**: coding-runtime has no
+  `examples/goose/` to copy it from.
+- `emit.mjs` — the emitter: normalized config → `config.yaml` (JSON, which is valid YAML,
+  through the base's JSON writer). Also owned here. Currently an interim stub; provider,
+  model, MCP and instructions translation is issue #1.
+- `launch-goose.sh` — what tmux runs: `goose session` in the project directory, falling
+  back to a shell if Goose exits non-zero so the pane does not close on an unseen error.
+  Resume (`--resume`, guarded on the sessions DB existing) is still to do in #1.
 - `chart/` — the Helm chart registering the cluster-scoped `LanguageAgentRuntime` named
-  `opencode`.
+  `goose`.
 - `.github/workflows/` — `test.yaml`, `build-image.yaml`, `release-chart.yaml`.
 
 ## Testing
@@ -44,17 +48,17 @@ it.
   mode. The suite is **extracted from the image under test**, so the checks always match
   the runtime being checked; it runs the container the way the operator does (read-only
   root, uid 1000, all capabilities dropped). Needs Docker.
-- `make lint-chart` — `helm lint chart` plus `helm template opencode chart`.
+- `make lint-chart` — `helm lint chart` plus `helm template goose chart`.
 - There is **no linter and no unit-test suite**. CI correctness is exactly the two
   `test.yaml` jobs: `image-test` and `chart-lint`.
 - Changes to the terminal, the emitter or the manifest are mostly **not** covered by
-  anything local — the conformance suite checks the runtime contract, not opencode's
+  anything local — the conformance suite checks the runtime contract, not Goose's
   behaviour. Say so plainly rather than implying a green build proves more than it does.
 - The PR title must be a conventional commit (`feat:`, `fix:`, `chore:`, `docs:`).
 
 ## Build & dev deploy
 
-- `make build` — build `ghcr.io/language-operator/opencode-adapter:<git-sha>` + `:latest`.
+- `make build` — build `ghcr.io/language-operator/goose-adapter:<git-sha>` + `:latest`.
 - `make dev` — build, import into local k3s, and `helm upgrade` the runtime (requires the
   `language-operator` chart / `LanguageAgentRuntime` CRD installed first).
 - `make publish` — push image tags to ghcr.io. `make uninstall` — remove the release.
@@ -76,7 +80,7 @@ Two rules the hard way:
   as `main`, which no `requires.codingRuntime` range can satisfy, and which fails the
   conformance suite's own semver check. Released tags only.
 
-Bumping the base, the opencode CLI or the GitHub Actions is `/update-dependencies`, not
+Bumping the base, the Goose CLI or the GitHub Actions is `/update-dependencies`, not
 `/release` — they are separate decisions.
 
 ## Issue-driven workflow

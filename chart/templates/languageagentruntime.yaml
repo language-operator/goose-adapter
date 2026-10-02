@@ -1,19 +1,20 @@
 apiVersion: langop.io/v1alpha1
 kind: LanguageAgentRuntime
 metadata:
-  name: opencode
+  name: goose
   labels:
-    {{- include "opencode.labels" . | nindent 4 }}
+    {{- include "goose.labels" . | nindent 4 }}
 spec:
   # Built on coding-runtime, which owns the OS layer, the web terminal and the
-  # /etc/agent/config.yaml ETL. This repo adds the opencode CLI plus a manifest
+  # /etc/agent/config.yaml ETL. This repo adds the Goose CLI plus a manifest
   # (/etc/coding-runtime/runtime.json), an emitter and a launcher.
   image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
 
   # Authentication is handled entirely by the cluster OIDC proxy — this is the
   # sole auth gate. When the cluster enables auth, agents using this runtime sit
-  # behind the injected oauth2-proxy sidecar. opencode talks to the model gateway
-  # using the provider config in opencode.jsonc; no interactive login is needed.
+  # behind the injected oauth2-proxy sidecar. Goose talks to the model gateway
+  # using the provider config seeded into its config.yaml; no interactive login
+  # is needed.
   auth:
     enabled: {{ .Values.auth.enabled }}
 
@@ -33,10 +34,10 @@ spec:
     # container shares no writable path with it — and the normalized config is a
     # pure function of /etc/agent/config.yaml plus the environment, both of which
     # are already present here. On WebSocket connect the base spawns
-    # `tmux new-session -A` running launch-opencode, in AGENT_REPO_DIR when the
+    # `tmux new-session -A` running launch-goose, in AGENT_REPO_DIR when the
     # agent sets spec.repository and /workspace otherwise.
     #
-    # HOME, the XDG directories and OPENCODE_CONFIG_DIR are all computed by the
+    # HOME, the XDG directories and GOOSE_PATH_ROOT are all computed by the
     # base (the last from runtime.json), so none of them are set here.
 
     # Probe the harness, not just the listener: a TCP probe stays green against a

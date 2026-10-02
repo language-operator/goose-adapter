@@ -26,7 +26,7 @@ jobs:
           file: ./Dockerfile
           push: false
           load: true
-          tags: opencode-adapter:test
+          tags: goose-adapter:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -35,7 +35,7 @@ jobs:
       # and it brings its own probe, so there is no version to keep in step here.
       - name: Extract the conformance suite from the image
         run: |
-          docker run --rm --entrypoint cat opencode-adapter:test \
+          docker run --rm --entrypoint cat goose-adapter:test \
             /opt/coding-runtime/test/conformance.sh > conformance.sh
           chmod +x conformance.sh
 
@@ -46,7 +46,7 @@ jobs:
       # cross-origin WebSocket guard, and that a keystroke reaches the program
       # under tmux. No tolerated failures.
       - name: Run conformance suite
-        run: ./conformance.sh opencode-adapter:test adapter
+        run: ./conformance.sh goose-adapter:test adapter
 
   chart-lint:
     runs-on: ubuntu-latest
@@ -63,4 +63,4 @@ jobs:
         run: helm lint chart
 
       - name: Template chart
-        run: helm template opencode chart
+        run: helm template goose chart
