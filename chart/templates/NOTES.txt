@@ -1,4 +1,4 @@
-opencode LanguageAgentRuntime installed.
+goose LanguageAgentRuntime installed.
 
 Prerequisite: the `language-operator` chart must be installed first (it provides
 the LanguageAgentRuntime CRD). Installing against a cluster without the CRD fails.
@@ -11,7 +11,7 @@ namespace via spec.runtime:
   metadata:
     name: my-agent
   spec:
-    runtime: opencode
+    runtime: goose
 
 Image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
 
@@ -20,5 +20,5 @@ http://<agent-name>.<namespace>.svc.cluster.local:{{ .Values.port }}. From a bro
 is reached through the cluster ingress, behind the OIDC proxy when the LanguageCluster
 enables auth.
 
-No interactive login: opencode reaches the model gateway using the provider config
-written to opencode.jsonc at startup.
+No interactive login: Goose reaches the model gateway using the provider config
+seeded into its config.yaml at startup.

@@ -1,10 +1,10 @@
 ---
 description: Bring every pinned upstream dependency up to date, with an audit trail
-argument-hint: "[all|base|opencode|actions] (default: all)"
+argument-hint: "[all|base|goose|actions] (default: all)"
 allowed-tools: Bash(git:*), Bash(gh:*), Bash(npm:*), Bash(curl:*), Bash(jq:*), Bash(docker:*), Bash(helm:*), Bash(make:*), Bash(diff:*), Read, Edit, Grep
 ---
 
-Update the upstream dependencies of `opencode-adapter`. Scope: **$ARGUMENTS** (empty means `all`).
+Update the upstream dependencies of `goose-adapter`. Scope: **$ARGUMENTS** (empty means `all`).
 
 This runs for security and compliance: the point is not only that versions move, but that
 the move is **recorded** — old version, new version, digest, and what changed — so the PR
@@ -27,16 +27,19 @@ config ETL all come from here, so this is the security-relevant one.
 conformance suite ships inside the image and CI extracts it from the build, so there is no
 separate suite version to keep in step.
 
-**2. The opencode CLI** — `Dockerfile` `ARG OPENCODE_VERSION`, installed as the npm package
-`opencode-ai`.
+**2. The Goose CLI** — `Dockerfile` `ARG GOOSE_VERSION` plus `ARG GOOSE_SHA256_AMD64` and
+`ARG GOOSE_SHA256_ARM64`, the release tarballs from `aaif-goose/goose`. Goose publishes no
+checksums, so the two digests are computed here and move with the version, all three
+together.
 
 **3. GitHub Actions** — across `.github/workflows/{test,build-image,release-chart}.yaml`:
 `actions/checkout`, `docker/setup-buildx-action`, `docker/login-action`,
 `docker/metadata-action`, `docker/build-push-action`, `azure/setup-helm`.
 
-**4. Vendored upstream files** — `runtime.json` and `emit.mjs` are **verbatim copies** of
-`examples/opencode/` in `coding-runtime`. Nothing fails when they drift from upstream, which
-is exactly why they get missed. Re-copy and diff them whenever the base moves.
+**4. The manifest and emitter** — `runtime.json` and `emit.mjs` are owned by this repo:
+`coding-runtime` ships no `examples/goose/` to copy them from. There is nothing to re-copy,
+but when the base moves, read its `docs/authoring-an-adapter.md` and `docs/config-schema.md`
+for contract changes these two files have to absorb.
 
 **5. The `/iterate` command** — `.claude/commands/iterate.md` and the three scripts in
 `.claude/commands/iterate/` are **verbatim copies** from `language-operator` (canonical, see
@@ -55,8 +58,10 @@ nothing else moved.
   satisfy — every boot warns about a mismatch that is not real — and which also fails the
   conformance suite's own `reports a version` check, since that asserts semver. Only
   released semver tags.
-- **opencode: take the `latest` dist-tag only.** The package also publishes `next`, `beta`
-  and `dev` tags carrying `0.0.0-*` versions; none of them belong in a release image.
+- **Goose: take the latest *release* only** (`gh api repos/aaif-goose/goose/releases/latest`),
+  never a pre-release or a `canary`/nightly build.
+- **Goose: recompute both checksums from the downloaded tarballs.** Never copy a digest from
+  anywhere else, and never drop the `sha256sum -c` to get past a mismatch.
 - **Do not unpin anything to make an update easier.** If a pin is in the way, that is the
   finding — report it rather than loosening it.
 
@@ -77,7 +82,7 @@ Stop and report if any precondition fails; do not continue past a failure.
 the "before" column of the audit trail.
 
 ```bash
-grep -nE 'ARG (BASE|OPENCODE_VERSION)' Dockerfile
+grep -nE 'ARG (BASE|GOOSE_)' Dockerfile
 grep -rn 'CODING_RUNTIME_VERSION' Makefile hack/conformance.sh .github/workflows/
 grep -rn 'uses: .*@' .github/workflows/
 ```
@@ -98,14 +103,15 @@ curl -sI -H "Authorization: Bearer $T" \
   | grep -i docker-content-digest
 ```
 
-opencode CLI — the `latest` dist-tag:
+Goose CLI — the latest release, then the two tarballs' digests:
 
 ```bash
-npm view opencode-ai dist-tags --json
+gh api repos/aaif-goose/goose/releases/latest --jq .tag_name
+d="$(mktemp -d)"
+gh release download <vX.Y.Z> --repo aaif-goose/goose --dir "$d" \
+  -p 'goose-x86_64-unknown-linux-gnu.tar.gz' -p 'goose-aarch64-unknown-linux-gnu.tar.gz'
+sha256sum "$d"/*.tar.gz
 ```
-
-If npm fails with `ENOENT … mkdir '/home/node/.npm'`, the cache directory is read-only in
-this environment; re-run with `npm_config_cache="$(mktemp -d)"` prefixed.
 
 GitHub Actions — latest release per action:
 
@@ -134,20 +140,10 @@ record why.
 
 - **Base:** update `ARG BASE` with the new tag **and** its digest, then the three
   `CODING_RUNTIME_VERSION` locations to the matching `vX.Y.Z`.
-- **Vendored files:** re-copy from the new base tag and diff before committing, so an
-  upstream change to the emitter or manifest is seen rather than silently kept or silently
-  clobbered:
-
-  ```bash
-  gh api repos/language-operator/coding-runtime/contents/examples/opencode/runtime.json?ref=<vX.Y.Z> --jq .content | base64 -d > /tmp/runtime.json
-  gh api repos/language-operator/coding-runtime/contents/examples/opencode/emit.mjs?ref=<vX.Y.Z>   --jq .content | base64 -d > /tmp/emit.mjs
-  diff -u runtime.json /tmp/runtime.json; diff -u emit.mjs /tmp/emit.mjs
-  ```
-
-  If either differs, take the upstream copy and describe the change in the PR. If
-  `runtime.json` gained a field this adapter should set, that is a real decision — surface
-  it rather than copying past it.
-- **opencode:** update `ARG OPENCODE_VERSION`.
+- **Manifest and emitter:** if the base's adapter contract changed (step 4 of the
+  dependency surface above), absorb it in `runtime.json` / `emit.mjs` and describe it in the
+  PR. A new manifest field this adapter should set is a real decision — surface it.
+- **Goose:** update `ARG GOOSE_VERSION` and both `ARG GOOSE_SHA256_*` together.
 - **Actions:** update the `uses:` pins.
 
 **6. Re-read how the suite is obtained.** CI and `make test` extract
@@ -158,7 +154,7 @@ fetching a tag, which is what let the suite drift from the runtime in the first 
 **7. Verify.**
 
 ```bash
-helm lint chart && helm template opencode chart >/dev/null
+helm lint chart && helm template goose chart >/dev/null
 make test        # builds the image and runs the conformance suite; needs Docker
 ```
 

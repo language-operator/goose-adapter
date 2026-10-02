@@ -4,16 +4,16 @@ argument-hint: major|minor|patch
 allowed-tools: Bash(git:*), Bash(helm:*), Read, Edit
 ---
 
-Cut a new release of `opencode-adapter`. The bump type is: **$ARGUMENTS**
+Cut a new release of `goose-adapter`. The bump type is: **$ARGUMENTS**
 
 ## Background (how releases work here)
 
 A release is triggered by pushing a `vX.Y.Z` git tag. Two GitHub Actions workflows fire on `tags: ['v*']`:
 
-- `.github/workflows/build-image.yaml` — builds and pushes the adapter image to `ghcr.io/language-operator/opencode-adapter`, tagged `X.Y.Z`, `X.Y`, `X`, and `sha-<commit>` (the leading `v` is stripped by `docker/metadata-action`).
+- `.github/workflows/build-image.yaml` — builds and pushes the adapter image to `ghcr.io/language-operator/goose-adapter`, tagged `X.Y.Z`, `X.Y`, `X`, and `sha-<commit>` (the leading `v` is stripped by `docker/metadata-action`).
 - `.github/workflows/release-chart.yaml` — runs `helm package chart` and pushes to `oci://ghcr.io/language-operator/charts`. The chart package version comes from `version:` in `chart/Chart.yaml`, **not** from the git tag.
 
-Version is kept in **lockstep**: `chart/Chart.yaml` `version`, `chart/Chart.yaml` `appVersion`, the pinned `adapter.image.tag` in `chart/values.yaml`, and the git tag all become the same `X.Y.Z`.
+Version is kept in **lockstep**: `chart/Chart.yaml` `version`, `chart/Chart.yaml` `appVersion`, the pinned `image.tag` in `chart/values.yaml`, and the git tag all become the same `X.Y.Z`.
 
 ## Steps
 
@@ -40,7 +40,7 @@ Print: `Releasing vX.Y.Z (was <baseline>)`.
 
 **4. Edit version locations** (use the Edit tool):
 - `chart/Chart.yaml`: set `version: X.Y.Z` and `appVersion: "X.Y.Z"`.
-- `chart/values.yaml`: under `adapter.image:`, set `tag: X.Y.Z` (currently may be `latest`). Do **not** touch the upstream `image.tag` (`ghcr.io/anomalyco/opencode`) — it is not built by this repo.
+- `chart/values.yaml`: under `image:`, set `tag: X.Y.Z`.
 
 **5. Validate the chart renders.** Run `helm lint chart` and `helm template chart >/dev/null`. If either fails, stop and report (the version is not yet committed, so nothing to roll back).
 
@@ -57,4 +57,4 @@ Print: `Releasing vX.Y.Z (was <baseline>)`.
 **8. Report.** After a successful push, report:
 - The pushed tag `vX.Y.Z`.
 - The two workflows now running (`Build and Push Image`, `Release Helm Chart`) — suggest watching them with `gh run watch` or the Actions tab.
-- The resulting artifacts: `ghcr.io/language-operator/opencode-adapter:X.Y.Z` and `oci://ghcr.io/language-operator/charts/opencode:X.Y.Z`.
+- The resulting artifacts: `ghcr.io/language-operator/goose-adapter:X.Y.Z` and `oci://ghcr.io/language-operator/charts/goose:X.Y.Z`.

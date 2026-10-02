@@ -19,7 +19,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE: ghcr.io/language-operator/opencode-adapter
+  IMAGE: ghcr.io/language-operator/goose-adapter
 
 jobs:
   build:

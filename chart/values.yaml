@@ -1,14 +1,14 @@
-# opencode LanguageAgentRuntime — a cluster-scoped runtime preset.
+# goose LanguageAgentRuntime — a cluster-scoped runtime preset.
 # Requires the language-operator chart (which provides the LanguageAgentRuntime
 # CRD) to be installed first.
 
-# Runtime image built by this repo: the coding-runtime base plus the opencode
+# Runtime image built by this repo: the coding-runtime base plus the Goose
 # CLI, a manifest, an emitter and a launcher. One container — the base seeds
-# opencode's config from /etc/agent/config.yaml on start, then serves the
+# Goose's config from /etc/agent/config.yaml on start, then serves the
 # xterm.js / tmux WebSocket terminal that fronts the interactive TUI.
 image:
-  repository: ghcr.io/language-operator/opencode-adapter
-  tag: 0.1.7
+  repository: ghcr.io/language-operator/goose-adapter
+  tag: 0.1.0
   pullPolicy: ""
 
 # Agents using this runtime sit behind the cluster OIDC proxy (when the cluster
