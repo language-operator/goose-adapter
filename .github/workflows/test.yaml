@@ -48,6 +48,17 @@ jobs:
       - name: Run conformance suite
         run: ./conformance.sh goose-adapter:test adapter
 
+      # Inside the image, so the emitter is fed by the base's own normalizer.
+      - name: Emitter tests
+        run: |
+          docker run --rm -v "$PWD:/adapter:ro" --entrypoint node goose-adapter:test \
+            --test "/adapter/test/*.test.mjs"
+
+      # Conformance proves the base honours task.exec with manifests of its own;
+      # this runs launch-goose-task and Goose against a mock gateway.
+      - name: Task mode
+        run: test/task-mode.sh goose-adapter:test
+
   chart-lint:
     runs-on: ubuntu-latest
     steps:

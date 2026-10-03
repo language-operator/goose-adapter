@@ -43,11 +43,14 @@ RUN set -eu; \
     goose --version
 
 # runtime.json  — what this adapter is: config dir, serving surface, tmux launch.
-# emit.mjs      — normalized operator config -> Goose's config.yaml.
-# launch-goose  — what tmux runs inside the terminal.
+# emit.mjs      — normalized operator config -> Goose's config.yaml, hints,
+#                 the task prompt and the gateway key reference.
+# launch-goose  — service mode: what tmux runs inside the terminal.
+# launch-goose-task — task mode: one headless run; its exit code is the phase.
 COPY runtime.json /etc/coding-runtime/runtime.json
 COPY emit.mjs /opt/adapter/emit.mjs
 COPY --chmod=755 launch-goose.sh /usr/local/bin/launch-goose
+COPY --chmod=755 launch-goose-task.sh /usr/local/bin/launch-goose-task
 
 # The operator pins the agent container to uid 1000 with no override, and the
 # base already has a matching passwd entry. Do not create a user here.
