@@ -10,7 +10,7 @@
 # `requires.codingRuntime` range can satisfy, so every boot would warn about a
 # version mismatch that is not real.
 # -----------------------------------------------------------------------------
-ARG BASE=ghcr.io/language-operator/coding-runtime:0.1.4@sha256:2f31ef9b04e72bec3a4bb79db59a82a4aa74f89538cfc118d75e0a852734b0aa
+ARG BASE=ghcr.io/language-operator/coding-runtime:0.1.6@sha256:318a540d9d062689d3ed6c0de34fb353ff076bb16c5770bcf296398c6e5a5412
 ARG GOOSE_VERSION=1.53.0
 # Goose publishes no checksums with its releases, so they are pinned here.
 # Recompute both whenever GOOSE_VERSION moves (see /update-dependencies).
@@ -43,11 +43,14 @@ RUN set -eu; \
     goose --version
 
 # runtime.json  — what this adapter is: config dir, serving surface, tmux launch.
-# emit.mjs      — normalized operator config -> Goose's config.yaml.
-# launch-goose  — what tmux runs inside the terminal.
+# emit.mjs      — normalized operator config -> Goose's config.yaml, hints,
+#                 the task prompt and the gateway key reference.
+# launch-goose  — service mode: what tmux runs inside the terminal.
+# launch-goose-task — task mode: one headless run; its exit code is the phase.
 COPY runtime.json /etc/coding-runtime/runtime.json
 COPY emit.mjs /opt/adapter/emit.mjs
 COPY --chmod=755 launch-goose.sh /usr/local/bin/launch-goose
+COPY --chmod=755 launch-goose-task.sh /usr/local/bin/launch-goose-task
 
 # The operator pins the agent container to uid 1000 with no override, and the
 # base already has a matching passwd entry. Do not create a user here.

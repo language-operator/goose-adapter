@@ -13,8 +13,10 @@ spec:
   # Authentication is handled entirely by the cluster OIDC proxy — this is the
   # sole auth gate. When the cluster enables auth, agents using this runtime sit
   # behind the injected oauth2-proxy sidecar. Goose talks to the model gateway
-  # using the provider config seeded into its config.yaml; no interactive login
-  # is needed.
+  # using the provider config seeded into its config.yaml and the key reference
+  # in gateway.env; no interactive login is needed. Task-mode agents
+  # (spec.execution.mode: task) use the same image: the base reads
+  # AGENT_EXECUTION_MODE and runs launch-goose-task instead of serving the TUI.
   auth:
     enabled: {{ .Values.auth.enabled }}
 

@@ -30,14 +30,22 @@ it.
   and digest**, and is the only place the base version appears.
 - `runtime.json` — the manifest: `GOOSE_PATH_ROOT=${STATE_DIR}/goose` (config at
   `config/config.yaml`, sessions at `data/sessions/sessions.db` under it), telemetry off,
-  the serving surface, how tmux launches the CLI. **Owned here**: coding-runtime has no
+  `GOOSE_DISABLE_KEYRING=1`, the serving surface, how tmux launches the CLI, and
+  `task.exec` for task mode (needs base ≥0.1.5). **Owned here**: coding-runtime has no
   `examples/goose/` to copy it from.
-- `emit.mjs` — the emitter: normalized config → `config.yaml` (JSON, which is valid YAML,
-  through the base's JSON writer). Also owned here. Currently an interim stub; provider,
-  model, MCP and instructions translation is issue #1.
-- `launch-goose.sh` — what tmux runs: `goose session` in the project directory, falling
-  back to a shell if Goose exits non-zero so the pane does not close on an unseen error.
-  Resume (`--resume`, guarded on the sessions DB existing) is still to do in #1.
+- `emit.mjs` — the emitter, also owned here. `config/config.yaml` (JSON, which is valid
+  YAML, through the base's JSON writer): `openai` provider, `OPENAI_HOST` **without**
+  `/v1` (Goose would call `/v1/v1/…`) plus an absolute `OPENAI_BASE_PATH`, the model, and
+  `streamable_http` extensions whose `$(NAME)` headers become `${NAME}` + `env_keys`.
+  `gateway.env` carries `OPENAI_API_KEY` as a reference, because Goose reads it from the
+  environment only. `config/.goosehints` is standing context; `task.md` the task prompt.
+- `launch-goose.sh` — service mode: `goose session`, with `--resume` only when
+  `goose session list` has one (resuming nothing is an error), falling back to a shell
+  if Goose exits non-zero so the pane does not close on an unseen error.
+- `launch-goose-task.sh` — task mode: `goose run` of `task.md`. Goose exits 0 on most
+  gateway errors (goose#4612; only 401/403 exit non-zero), so the run fails when the final
+  assistant message lacks `metadata.inference` — the mark of an error Goose made up
+  locally rather than an answer from the model.
 - `chart/` — the Helm chart registering the cluster-scoped `LanguageAgentRuntime` named
   `goose`.
 - `.github/workflows/` — `test.yaml`, `build-image.yaml`, `release-chart.yaml`.
@@ -49,8 +57,16 @@ it.
   the runtime being checked; it runs the container the way the operator does (read-only
   root, uid 1000, all capabilities dropped). Needs Docker.
 - `make lint-chart` — `helm lint chart` plus `helm template goose chart`.
-- There is **no linter and no unit-test suite**. CI correctness is exactly the two
-  `test.yaml` jobs: `image-test` and `chart-lint`.
+- `make test` also runs, after conformance:
+  - `test/emit.test.mjs` — emitter tests, run **inside the image** so they use the base's
+    own `normalize` and `emitterContext`. Without Docker, run them against a coding-runtime
+    checkout of the pinned version:
+    `CODING_RUNTIME_SRC=<checkout>/src node --test "test/*.test.mjs"`.
+  - `test/task-mode.sh` — task-mode agents against `test/mock-gateway.mjs`: a good model
+    exits 0 with the instructions as the prompt and the per-agent key as the bearer; a bad
+    model name and missing instructions exit non-zero.
+- There is no linter. CI correctness is exactly the two `test.yaml` jobs: `image-test`
+  (conformance, emitter tests, task mode) and `chart-lint`.
 - Changes to the terminal, the emitter or the manifest are mostly **not** covered by
   anything local — the conformance suite checks the runtime contract, not Goose's
   behaviour. Say so plainly rather than implying a green build proves more than it does.
