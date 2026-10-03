@@ -3,7 +3,7 @@
   "name": "goose",
   "displayName": "goose",
   "role": "main",
-  "requires": { "codingRuntime": ">=0.1.2 <1.0.0" },
+  "requires": { "codingRuntime": ">=0.1.5 <1.0.0" },
   "env": {
     "GOOSE_PATH_ROOT": "${STATE_DIR}/goose",
     "GOOSE_TELEMETRY_ENABLED": "false"
