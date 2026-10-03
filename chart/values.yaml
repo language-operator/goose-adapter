@@ -8,7 +8,7 @@
 # xterm.js / tmux WebSocket terminal that fronts the interactive TUI.
 image:
   repository: ghcr.io/language-operator/goose-adapter
-  tag: 0.1.0
+  tag: 0.1.1
   pullPolicy: ""
 
 # Agents using this runtime sit behind the cluster OIDC proxy (when the cluster
